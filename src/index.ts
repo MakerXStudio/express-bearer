@@ -1,7 +1,16 @@
-import { Logger } from '@makerxstudio/node-common'
-import { Express, RequestHandler, Response } from 'express'
+import type { Logger } from '@makerxstudio/node-common'
+import type { Express, RequestHandler, Response } from 'express'
 import { GetPublicKeyOrSecret, verify, VerifyOptions, JwtPayload } from 'jsonwebtoken'
 import { JwksClient } from 'jwks-rsa'
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      user?: Record<string, unknown>
+    }
+  }
+}
 
 export interface BearerConfig {
   jwksUri: string
