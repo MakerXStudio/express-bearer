@@ -9,5 +9,5 @@ permissions:
   packages: read
 
 jobs:
-  ci:
+  pull_request:
     uses: ./.github/workflows/node-ci.yml

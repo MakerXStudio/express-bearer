@@ -1,4 +1,4 @@
-name: Release
+name: Publish
 
 on:
   push:
@@ -10,5 +10,5 @@ permissions:
   packages: write
 
 jobs:
-  ci:
+  publish:
     uses: ./.github/workflows/node-publish-internal.yml
