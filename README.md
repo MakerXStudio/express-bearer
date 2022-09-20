@@ -1,6 +1,8 @@
 # Express bearer
 
-An express middleware to decode and verify JWTs from bearer authorization headers:
+An express middleware to decode and verify JWTs from bearer authorization headers.
+
+## What does this do?
 
 - loads signing keys from a JWKS endpoint using [jwks-rsa](https://github.com/auth0/node-jwks-rsa#readme)
 - verifies and decodes a JWT from a Bearer authorization header using [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken#jwtverifytoken-secretorpublickey-options-callback)
