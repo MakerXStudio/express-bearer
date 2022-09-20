@@ -10,6 +10,6 @@ permissions:
 
 jobs:
   ci:
-    uses: ./node/publish-internal.yml
+    uses: ./.github/workflows/node/publish-internal.yml
     secrets:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
