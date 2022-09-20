@@ -21,7 +21,7 @@ export type BearerConfigCallback = (hostName: string) => BearerConfig
 
 export interface BearerAuthOptions {
   config: BearerConfig | BearerConfigCallback
-  tokenIsOptional?: boolean
+  tokenIsRequired?: boolean
   logger?: Logger
 }
 
@@ -54,11 +54,11 @@ const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerC
   })
 }
 
-export const bearerTokenMiddleware = ({ config, tokenIsOptional = false, logger }: BearerAuthOptions): RequestHandler => {
+export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: BearerAuthOptions): RequestHandler => {
   const unauthorized = (res: Response) => res.status(401).send('Unauthorized').end()
   const handler: RequestHandler = (req, res, next) => {
     if (!req.headers.authorization?.startsWith('Bearer ')) {
-      if (tokenIsOptional) return next()
+      if (!tokenIsRequired) return next()
       logger?.debug('Bearer token not supplied')
       return unauthorized(res)
     }

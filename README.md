@@ -9,6 +9,8 @@ An express middleware to decode and verify JWTs from bearer authorization header
 ## Usage
 
 ```ts
+import { bearerTokenMiddleware, BearerConfig } from '@makerxstudio/express-bearer'
+
 const app = express()
 const config: BearerConfig = {
   jwksUri: 'https://login.microsoftonline.com/<tenant ID>/discovery/v2.0/keys',
@@ -17,71 +19,53 @@ const config: BearerConfig = {
     audience: '<audience ID>',
   },
 }
-addBearerTokenValidationHandler({ app, config })
+
+// add the bearer token middleware (to all routes)
+app.use(bearerTokenMiddleware({ config }))
+// or... add to a specific route
+app.post('/api/admin/*', bearerTokenMiddleware({ config }))
+// or... add to a specific route + make authentication mandatory
+app.post('/api/admin/*', bearerTokenMiddleware({ config, tokenIsRequired: true }))
+
+// access the user, check the roles claim
+app.post('/api/admin/*', (req, res, next) => {
+  const roles = (req.user?.roles as string[]) ?? []
+  if (!roles.includes('Admin')) throw new Error('Authorization failed')
+  next()
+})
 ```
 
-This code adds a request handler to `POST *` which:
+The middleware will:
 
-- Returns `401 Unauthorised` when the JWT fails decoding / verification
-- Returns `401 Unauthorised` when there is no `Bearer {token}` authorization header (unless `tokenIsOptional` is set to `true`)
+- Return `401 Unauthorised` when the JWT fails decoding / verification
+- Return `401 Unauthorised` if there is no `Bearer {token}` authorization header and `tokenIsRequired` is set to `true` (default is `false`)
 
 ## Options
 
-The `addBearerTokenValidationHandler` accepts `BearerAuthOptions`:
+`BearerAuthOptions`:
 
-| Option            | Description                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `app`             | The express app which add the handler is added                                               |
-| `config`          | The JWT handling config \*`BearerConfig` or callback to retrieve the config by host          |
-| `protectRoute`    | The route on which to add the request handler, default: `'*'`                                |
-| `tokenIsOptional` | Controls whether request without an authorization header are allowed, default: `false`       |
-| `logger`          | Optional logger implementation to log token validation errors, handler setup info entry etc. |
+| Option            | Description                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `config`          | The JWT handling config \*`BearerConfig` (or \*`BearerConfigCallback` for per-host config).             |
+| `tokenIsRequired` | Controls whether requests with no `Bearer {token}` authorization header are rejected, default: `false`. |
+| `logger`          | Optional logger implementation to log token validation errors, handler setup info entry etc.            |
 
-JWT handling `config` is via \*`BearerConfig`:
-| Option | Description |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `jwksUri` | The endpoint to load signing keys via [jwks-rsa](https://github.com/auth0/node-jwks-rsa#readme) |
+JWT handling `config`:
+
+| Option          | Description                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `jwksUri`       | The endpoint to load signing keys via [jwks-rsa](https://github.com/auth0/node-jwks-rsa#readme)                                    |
 | `verifyOptions` | The options passed into [jwt.verify](https://github.com/auth0/node-jsonwebtoken#jwtverifytoken-secretorpublickey-options-callback) |
 
-If you wish to support multiple configurations / tenants, provide a `BearerConfigCallback` to return config according to `req.headers.host`. The callback will only be called once per host (config is cached).
+### Multitenant apps
 
-## Examples
+To specify per-host config, provide a \*`BearerConfigCallback` in the form of `(host: string) => BearerConfig`.
 
-### Optional authentication
+Note: the callback will only be called once per host (config is cached).
 
-Setting `tokenIsOptional` to `true` will allow requests without any authorization header / bearer token.
+## Logging
 
-```ts
-const config: BearerConfig = {
-  jwksUri: ..,
-  verifyOptions: { ... },
-  tokenIsOptional: true
-}
-```
-
-### Custom route
-
-Setting `protectRoute` controls the `POST` route that the handler is set up on, default: '`*`'.
-
-```ts
-app.post(protectRoute, handler)
-```
-
-See [Express JS Routing](http://expressjs.com/en/guide/routing.html) for options on route path configuration.
-
-This example only adds the request handler to `/admin/*`:
-
-```ts
-const config: BearerConfig = {
-  jwksUri: ..,
-  verifyOptions: { ... },
-  protectRoute = '/admin/*',
-}
-```
-
-### Logging
-
-Set the logger implementation to an object that fulfills the `Logger` interface:
+Set the logger implementation to an object that fulfills the `Logger` definition:
 
 ```ts
 type Logger = {
@@ -93,7 +77,7 @@ type Logger = {
 }
 ```
 
-Note, this type is compatible with [winston loggers](https://github.com/winstonjs/winston).
+Note: this type is compatible with [winston loggers](https://github.com/winstonjs/winston).
 
 The following example uses console logging:
 
@@ -107,7 +91,7 @@ const logger: Logger = {
 }
 
 const config: BearerConfig = {
-  jwksUri: ..,
+  jwksUri: ...,
   verifyOptions: { ... },
   logger,
 }
