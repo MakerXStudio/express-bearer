@@ -54,7 +54,7 @@ const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerC
   })
 }
 
-const middleware = ({ config, tokenIsOptional = false, logger }: BearerAuthOptions): RequestHandler => {
+export const bearerTokenMiddleware = ({ config, tokenIsOptional = false, logger }: BearerAuthOptions): RequestHandler => {
   const unauthorized = (res: Response) => res.status(401).send('Unauthorized').end()
   const handler: RequestHandler = (req, res, next) => {
     if (!req.headers.authorization?.startsWith('Bearer ')) {
@@ -78,5 +78,5 @@ const middleware = ({ config, tokenIsOptional = false, logger }: BearerAuthOptio
   return handler
 }
 
-export default middleware
+export default bearerTokenMiddleware
 export { VerifyOptions }
