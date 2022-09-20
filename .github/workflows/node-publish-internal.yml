@@ -38,7 +38,7 @@ jobs:
       - run: npm run lint --if-present
       - run: npm run check-types --if-present
       - run: npm test --if-present
-      - run: npm build
+      - run: npm run build
 
       - name: Publish (if version has been updated)
         uses: JS-DevTools/npm-publish@v1
