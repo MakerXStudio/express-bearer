@@ -1,6 +1,6 @@
 import type { Logger } from '@makerxstudio/node-common'
-import type { Express, RequestHandler, Response } from 'express'
-import { GetPublicKeyOrSecret, verify, VerifyOptions, JwtPayload } from 'jsonwebtoken'
+import type { RequestHandler, Response } from 'express'
+import { GetPublicKeyOrSecret, JwtPayload, verify, VerifyOptions } from 'jsonwebtoken'
 import { JwksClient } from 'jwks-rsa'
 
 declare global {
@@ -20,9 +20,7 @@ export interface BearerConfig {
 export type BearerConfigCallback = (hostName: string) => BearerConfig
 
 export interface BearerAuthOptions {
-  app: Express
   config: BearerConfig | BearerConfigCallback
-  protectRoute?: string
   tokenIsOptional?: boolean
   logger?: Logger
 }
@@ -56,13 +54,7 @@ const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerC
   })
 }
 
-export const addBearerTokenValidationHandler = ({
-  app,
-  config,
-  protectRoute = '*',
-  tokenIsOptional = false,
-  logger,
-}: BearerAuthOptions): RequestHandler => {
+const middleware = ({ config, tokenIsOptional = false, logger }: BearerAuthOptions): RequestHandler => {
   const unauthorized = (res: Response) => res.status(401).send('Unauthorized').end()
   const handler: RequestHandler = (req, res, next) => {
     if (!req.headers.authorization?.startsWith('Bearer ')) {
@@ -83,12 +75,8 @@ export const addBearerTokenValidationHandler = ({
       })
   }
 
-  if (protectRoute) {
-    app.post(protectRoute, handler)
-    logger?.info(`Bearer token validation handler added to route POST ${protectRoute}`)
-  }
-
   return handler
 }
 
+export default middleware
 export { VerifyOptions }
