@@ -47,7 +47,7 @@ const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerC
     verify(jwt, getKey, { ...verifyOptions, complete: false }, (error, decoded) => {
       if (error) return reject(error)
       if (!decoded || typeof decoded === 'string') {
-        return reject('Bearer token decoding failed')
+        return reject(new Error('Bearer token decoding failed'))
       }
       return resolve(decoded)
     })
