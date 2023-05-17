@@ -26,7 +26,7 @@ export interface BearerAuthOptions {
 }
 
 const cacheByHost: Record<string, { verifyOptions: VerifyOptions; jwksClient: JwksClient; getKey: GetPublicKeyOrSecret }> = {}
-const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerConfigCallback): Promise<JwtPayload> => {
+export const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerConfigCallback): Promise<JwtPayload> => {
   if (!cacheByHost[host]) {
     const { jwksUri, verifyOptions } = typeof config === 'function' ? config(host) : config
     const jwksClient = new JwksClient({ jwksUri })
