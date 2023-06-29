@@ -53,7 +53,7 @@
     "express": "*"
   },
   "dependencies": {
-    "@makerxstudio/node-common": "^0.4.0",
+    "@makerx/node-common": "^1.0.3",
     "jsonwebtoken": "^9.0.0",
     "jwks-rsa": "^3.0.1"
   },
