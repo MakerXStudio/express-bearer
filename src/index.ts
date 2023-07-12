@@ -1,5 +1,5 @@
 import type { Logger } from '@makerx/node-common'
-import type { RequestHandler, Response } from 'express'
+import type { Request, RequestHandler, Response } from 'express'
 import { GetPublicKeyOrSecret, JwtPayload, verify, VerifyOptions } from 'jsonwebtoken'
 import { JwksClient } from 'jwks-rsa'
 
@@ -24,6 +24,16 @@ export interface BearerConfig {
   verifyOptions: VerifyOptions
 
   /**
+   * Callback invoked when an error happens:
+   *
+   *  - The token is required and is not present, or
+   *  - The token validation fails.
+   *
+   *  When not provided, a plain text 401 Unauthorized response is returned.
+   */
+  errorResponse?: (req: Request, res: Response) => Response
+
+  /**
    * The default behaviour is to require that verifyOptions.issuer is set, for security purposes.
    * If the intended behaviour is to not validate the issuer, set this property to true.
    */
@@ -44,17 +54,26 @@ export interface BearerAuthOptions {
   logger?: Logger
 }
 
+const resolveConfig = (config: BearerConfig | BearerConfigCallback, host: string): BearerConfig => {
+  if (typeof config === 'function') return config(host)
+  return config
+}
+
 const cacheByHost: Record<string, { verifyOptions: VerifyOptions; jwksClient: JwksClient; getKey: GetPublicKeyOrSecret }> = {}
 export const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerConfigCallback): Promise<JwtPayload> => {
   if (!cacheByHost[host]) {
-    const { jwksUri, verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation } = typeof config === 'function' ? config(host) : config
+    const { jwksUri, verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation } = resolveConfig(config, host)
 
     if (!explicitNoIssuerValidation && !verifyOptions.issuer) {
-      throw new Error('You need to set verifyOptions.issuer, or set explicitNoIssuerValidation to true if you explicitly want to skip issuer validation')
+      throw new Error(
+        'You need to set verifyOptions.issuer, or set explicitNoIssuerValidation to true if you explicitly want to skip issuer validation'
+      )
     }
 
     if (!explicitNoAudienceValidation && !verifyOptions.audience) {
-      throw new Error('You need to set verifyOptions.audience, or set explicitNoAudienceValidation to true if you explicitly want to skip audience validation')
+      throw new Error(
+        'You need to set verifyOptions.audience, or set explicitNoAudienceValidation to true if you explicitly want to skip audience validation'
+      )
     }
 
     const jwksClient = new JwksClient({ jwksUri })
@@ -82,24 +101,28 @@ export const verifyForHost = (host: string, jwt: string, config: BearerConfig | 
   })
 }
 
+const defaultErrorResponse = (_req: Request, res: Response) => res.status(401).send('Unauthorized').end()
 export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: BearerAuthOptions): RequestHandler => {
-  const unauthorized = (res: Response) => res.status(401).send('Unauthorized').end()
   const handler: RequestHandler = (req, res, next) => {
+    const host = req.headers.host ?? ''
+    const resolvedConfig = resolveConfig(config, host)
+    const errorResponse = resolvedConfig.errorResponse ?? defaultErrorResponse
+
     if (!req.headers.authorization?.startsWith('Bearer ')) {
       if (!tokenIsRequired) return next()
       logger?.debug('Bearer token not supplied')
-      return unauthorized(res)
+      return errorResponse(req, res)
     }
 
     const jwt = req.headers.authorization?.substring(7)
-    verifyForHost(req.headers.host ?? '', jwt, config)
+    verifyForHost(host, jwt, config)
       .then((claims) => {
         req.user = claims
         next()
       })
       .catch((error: unknown) => {
         logger?.error('Bearer token verification failed', { host: req.headers.host, error })
-        unauthorized(res)
+        errorResponse(req, res)
       })
   }
 
