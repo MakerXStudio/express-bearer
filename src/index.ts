@@ -24,14 +24,11 @@ export interface BearerConfig {
   verifyOptions: VerifyOptions
 
   /**
-   * Callback invoked when an error happens:
+   * Callback invoked when the token is required and is not present, or the validation fails.
    *
-   *  - The token is required and is not present, or
-   *  - The token validation fails.
-   *
-   *  When not provided, a plain text 401 Unauthorized response is returned.
+   * When not provided, a plain text 401 Unauthorized response is returned.
    */
-  errorResponse?: (req: Request, res: Response) => Response
+  unauthorizedResponse?: (req: Request, res: Response) => Response
 
   /**
    * The default behaviour is to require that verifyOptions.issuer is set, for security purposes.
@@ -101,17 +98,17 @@ export const verifyForHost = (host: string, jwt: string, config: BearerConfig | 
   })
 }
 
-const defaultErrorResponse = (_req: Request, res: Response) => res.status(401).send('Unauthorized').end()
+const defaultUnauthorizedResponse = (_req: Request, res: Response) => res.status(401).send('Unauthorized').end()
 export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: BearerAuthOptions): RequestHandler => {
   const handler: RequestHandler = (req, res, next) => {
     const host = req.headers.host ?? ''
     const resolvedConfig = resolveConfig(config, host)
-    const errorResponse = resolvedConfig.errorResponse ?? defaultErrorResponse
+    const unauthorizedResponse = resolvedConfig.unauthorizedResponse ?? defaultUnauthorizedResponse
 
     if (!req.headers.authorization?.startsWith('Bearer ')) {
       if (!tokenIsRequired) return next()
       logger?.debug('Bearer token not supplied')
-      return errorResponse(req, res)
+      return unauthorizedResponse(req, res)
     }
 
     const jwt = req.headers.authorization?.substring(7)
@@ -122,7 +119,7 @@ export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: Beare
       })
       .catch((error: unknown) => {
         logger?.error('Bearer token verification failed', { host: req.headers.host, error })
-        errorResponse(req, res)
+        unauthorizedResponse(req, res)
       })
   }
 
