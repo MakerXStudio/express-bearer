@@ -88,11 +88,11 @@ The following example uses console logging:
 
 ```ts
 const logger: Logger = {
-  error: (message: string, ...params: unknown[]) => console.error
-  warn: (message: string, ...params: unknown[]) => console.warn
-  info: (message: string, ...params: unknown[]) => console.info
-  verbose: (message: string, ...params: unknown[]) => console.trace
-  debug: (message: string, ...params: unknown[]) => console.debug
+  error: (message: string, ...params: unknown[]) => console.error(message, ...params),
+  warn: (message: string, ...params: unknown[]) => console.warn(message, ...params),
+  info: (message: string, ...params: unknown[]) => console.info(message, ...params),
+  verbose: (message: string, ...params: unknown[]) => console.trace(message, ...params),
+  debug: (message: string, ...params: unknown[]) => console.debug(message, ...params),
 }
 
 const config: BearerConfig = {
