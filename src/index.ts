@@ -59,13 +59,13 @@ const resolveConfig = (config: BearerConfig | BearerConfigCallback, host: string
 function validateVerifyOptions(verifyOptions: VerifyOptions, explicitNoIssuerValidation?: boolean, explicitNoAudienceValidation?: boolean) {
   if (!explicitNoIssuerValidation && !verifyOptions.issuer) {
     throw new Error(
-      'You need to set verifyOptions.issuer, or set explicitNoIssuerValidation to true if you explicitly want to skip issuer validation'
+      'You need to set verifyOptions.issuer, or set explicitNoIssuerValidation to true if you explicitly want to skip issuer validation',
     )
   }
 
   if (!explicitNoAudienceValidation && !verifyOptions.audience) {
     throw new Error(
-      'You need to set verifyOptions.audience, or set explicitNoAudienceValidation to true if you explicitly want to skip audience validation'
+      'You need to set verifyOptions.audience, or set explicitNoAudienceValidation to true if you explicitly want to skip audience validation',
     )
   }
 }
@@ -119,10 +119,10 @@ export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: Beare
     if (!req.headers.authorization?.startsWith('Bearer ')) {
       if (!tokenIsRequired) return next()
       logger?.debug('Bearer token not supplied')
-      return unauthorizedResponse(req, res)
+      unauthorizedResponse(req, res)
     }
 
-    const jwt = req.headers.authorization?.substring(7)
+    const jwt = req.headers.authorization?.substring(7) ?? ''
     verifyForHost(host, jwt, config)
       .then((claims) => {
         req.user = claims
@@ -177,7 +177,7 @@ export const verifyMultiIssuer = (
     issuerVerifyOptions,
     explicitNoIssuerValidation,
     explicitNoAudienceValidation,
-  }: Pick<MultiIssuerBearerAuthOptions, 'issuerVerifyOptions' | 'explicitNoIssuerValidation' | 'explicitNoAudienceValidation'>
+  }: Pick<MultiIssuerBearerAuthOptions, 'issuerVerifyOptions' | 'explicitNoIssuerValidation' | 'explicitNoAudienceValidation'>,
 ): Promise<JwtPayload> => {
   const decoded = decode(jwt)
   if (!decoded || typeof decoded === 'string') throw new Error('Bearer token decoding failed')
@@ -209,10 +209,10 @@ export const multiIssuerBearerTokenMiddleware = ({
     if (!req.headers.authorization?.startsWith('Bearer ')) {
       if (!tokenIsRequired) return next()
       logger?.debug('Bearer token not supplied')
-      return unauthorizedHandler(req, res)
+      unauthorizedHandler(req, res)
     }
 
-    const jwt = req.headers.authorization?.substring(7)
+    const jwt = req.headers.authorization?.substring(7) ?? ''
     const host = req.headers.host ?? ''
 
     verifyMultiIssuer(host, jwt, { issuerVerifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation })

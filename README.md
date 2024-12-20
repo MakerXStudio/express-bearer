@@ -68,6 +68,10 @@ To specify per-host config, provide a \*`BearerConfigCallback` in the form of `(
 
 Note: the callback will only be called once per host (config is cached).
 
+### Apps accepting bearer tokens from multiple issuers
+
+If your app needs to accept bearer tokens from multiple issuers (OIDC endpoints) on a single endpoint (not varied by host), use `multiIssuerBearerTokenMiddleware`:
+
 ## Logging
 
 Set the logger implementation to an object that fulfills the `Logger` definition:
