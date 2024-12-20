@@ -140,7 +140,7 @@ export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: Beare
 export type VerifyOptionsCallback = (host: string) => VerifyOptions
 export type IssuerVerifyOptions = { jwksUri: string; verifyOptions: VerifyOptions | VerifyOptionsCallback }
 
-export interface MultiIssuerAuthOptions {
+export interface MultiIssuerBearerAuthOptions {
   /**
    * The options used to verify incoming JSON Web Tokens (JWTs) for all supported issuers (keyed by issuer claim value).
    */
@@ -170,6 +170,30 @@ export interface MultiIssuerAuthOptions {
 }
 
 const multiIssuerJwksClients: Record<string, JwksClient> = {}
+export const verifyMultiIssuer = (
+  host: string,
+  jwt: string,
+  {
+    issuerVerifyOptions,
+    explicitNoIssuerValidation,
+    explicitNoAudienceValidation,
+  }: Pick<MultiIssuerBearerAuthOptions, 'issuerVerifyOptions' | 'explicitNoIssuerValidation' | 'explicitNoAudienceValidation'>
+): Promise<JwtPayload> => {
+  const decoded = decode(jwt)
+  if (!decoded || typeof decoded === 'string') throw new Error('Bearer token decoding failed')
+  if (!decoded.iss) throw new Error('Bearer token does not contain an issuer claim')
+
+  const options = issuerVerifyOptions[decoded.iss]
+  if (!options) throw new Error(`Missing bearer token verify options for issuer: ${decoded.iss}`)
+
+  const { jwksUri } = options
+  if (!multiIssuerJwksClients[jwksUri]) multiIssuerJwksClients[jwksUri] = new JwksClient({ jwksUri })
+
+  const verifyOptions = typeof options.verifyOptions === 'function' ? options.verifyOptions(host) : options.verifyOptions
+  validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
+
+  return verifyToken(jwt, createGetKey(multiIssuerJwksClients[jwksUri]), verifyOptions)
+}
 
 export const multiIssuerBearerTokenMiddleware = ({
   unauthorizedResponse,
@@ -178,7 +202,7 @@ export const multiIssuerBearerTokenMiddleware = ({
   issuerVerifyOptions,
   explicitNoIssuerValidation,
   explicitNoAudienceValidation,
-}: MultiIssuerAuthOptions): RequestHandler => {
+}: MultiIssuerBearerAuthOptions): RequestHandler => {
   const handler: RequestHandler = (req, res, next) => {
     const unauthorizedHandler = unauthorizedResponse ?? defaultUnauthorizedResponse
 
@@ -189,30 +213,9 @@ export const multiIssuerBearerTokenMiddleware = ({
     }
 
     const jwt = req.headers.authorization?.substring(7)
-    const decoded = decode(jwt)
-    if (!decoded || typeof decoded === 'string') {
-      logger?.error('Bearer token decoding failed')
-      return unauthorizedHandler(req, res)
-    }
-    if (!decoded.iss) {
-      logger?.error('Bearer token does not contain an issuer claim')
-      return unauthorizedHandler(req, res)
-    }
-
-    const options = issuerVerifyOptions[decoded.iss]
-    if (!options) {
-      logger?.error(`Missing bearer token verify options for issuer: ${decoded.iss}`)
-      return unauthorizedHandler(req, res)
-    }
-
-    const { jwksUri } = options
-    if (!multiIssuerJwksClients[jwksUri]) multiIssuerJwksClients[jwksUri] = new JwksClient({ jwksUri })
-
     const host = req.headers.host ?? ''
-    const verifyOptions = typeof options.verifyOptions === 'function' ? options.verifyOptions(host) : options.verifyOptions
-    validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
 
-    verifyToken(jwt, createGetKey(multiIssuerJwksClients[jwksUri]), verifyOptions)
+    verifyMultiIssuer(host, jwt, { issuerVerifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation })
       .then((claims) => {
         req.user = claims
         next()
@@ -224,12 +227,6 @@ export const multiIssuerBearerTokenMiddleware = ({
   }
 
   return handler
-}
-
-export interface MultiIssuerBearerAuthOptions {
-  config: Record<string, BearerConfig | BearerConfigCallback>
-  tokenIsRequired?: boolean
-  logger?: Logger
 }
 
 export default bearerTokenMiddleware
