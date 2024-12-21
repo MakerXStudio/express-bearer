@@ -68,6 +68,39 @@ To specify per-host config, provide a \*`BearerConfigCallback` in the form of `(
 
 Note: the callback will only be called once per host (config is cached).
 
+### Apps accepting bearer tokens from multiple issuers
+
+If your app needs to accept bearer tokens from multiple issuers (OIDC endpoints) **each with different JWKS URIs** on a single endpoint (not varied by host), `multiIssuerBearerTokenMiddleware` supports this with a different approach. It will:
+
+- decode the token without verifying it
+- use the `iss` claim to access the issuer-specific config `IssuerOptions` (or return unauthorized, if not found)
+- verify the token using the issuer-specific config (caching JwksClient instances per JWKS URI)
+
+#### Multi-issuer options
+
+```ts
+import { IssuerOptions, multiIssuerBearerTokenMiddleware, MultiIssuerBearerAuthOptions } from '@makerxstudio/express-bearer'
+
+const app = express()
+const issuerOptions: Record<string, IssuerOptions> = {
+  'https://example.com/oidc': {
+    jwksUri: 'https://example.com/oidc/jwks',
+    verifyOptions: {
+      audience: 'https://api.example.com',
+    },
+  },
+  'https://login.microsoftonline.com/<tenant ID>/v2.0': {
+    jwksUri: 'https://login.microsoftonline.com/<tenant ID>/discovery/v2.0/keys',
+    verifyOptions: {
+      audience: '<audience ID>',
+    },
+  },
+}
+
+// add the multi issuer bearer token middleware (to all routes)
+app.use(multiIssuerBearerTokenMiddleware({ issuerOptions, tokenIsRequired: true }))
+```
+
 ## Logging
 
 Set the logger implementation to an object that fulfills the `Logger` definition:
