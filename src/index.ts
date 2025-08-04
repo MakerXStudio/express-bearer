@@ -111,7 +111,7 @@ export const verifyForHost = (host: string, jwt: string, config: BearerConfig | 
 const defaultUnauthorizedResponse = (_req: Request, res: Response) => res.status(401).send('Unauthorized').end()
 
 export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: BearerAuthOptions): RequestHandler => {
-  const handler: RequestHandler = (req, res, next) => {
+  const handler: RequestHandler = async (req, res, next) => {
     const host = req.headers.host ?? ''
     const resolvedConfig = resolveConfig(config, host)
     const unauthorizedResponse = resolvedConfig.unauthorizedResponse ?? defaultUnauthorizedResponse
@@ -123,15 +123,15 @@ export const bearerTokenMiddleware = ({ config, tokenIsRequired, logger }: Beare
     }
 
     const jwt = req.headers.authorization?.substring(7) ?? ''
-    verifyForHost(host, jwt, config)
-      .then((claims) => {
-        req.user = claims
-        next()
-      })
-      .catch((error: unknown) => {
-        logger?.error('Bearer token verification failed', { host: req.headers.host, error })
-        unauthorizedResponse(req, res)
-      })
+
+    try {
+      const claims = await verifyForHost(host, jwt, config)
+      req.user = claims
+      next()
+    } catch (error: unknown) {
+      logger?.error('Bearer token verification failed', { host: req.headers.host, error })
+      unauthorizedResponse(req, res)
+    }
   }
 
   return handler
@@ -212,7 +212,7 @@ export const multiIssuerBearerTokenMiddleware = ({
   explicitNoIssuerValidation,
   explicitNoAudienceValidation,
 }: MultiIssuerBearerAuthOptions): RequestHandler => {
-  const handler: RequestHandler = (req, res, next) => {
+  const handler: RequestHandler = async (req, res, next) => {
     const unauthorizedHandler = unauthorizedResponse ?? defaultUnauthorizedResponse
 
     if (!req.headers.authorization?.startsWith('Bearer ')) {
@@ -224,15 +224,14 @@ export const multiIssuerBearerTokenMiddleware = ({
     const jwt = req.headers.authorization?.substring(7) ?? ''
     const host = req.headers.host ?? ''
 
-    verifyMultiIssuer(host, jwt, { issuerOptions, explicitNoIssuerValidation, explicitNoAudienceValidation })
-      .then((claims) => {
-        req.user = claims
-        next()
-      })
-      .catch((error: unknown) => {
-        logger?.error('Bearer token verification failed', { host: req.headers.host, error })
-        unauthorizedHandler(req, res)
-      })
+    try {
+      const claims = await verifyMultiIssuer(host, jwt, { issuerOptions, explicitNoIssuerValidation, explicitNoAudienceValidation })
+      req.user = claims
+      next()
+    } catch (error) {
+      logger?.error('Bearer token verification failed', { host: req.headers.host, error })
+      unauthorizedHandler(req, res)
+    }
   }
 
   return handler
