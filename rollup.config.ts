@@ -26,7 +26,7 @@ const config: RollupOptions = {
     moduleSideEffects: false,
     propertyReadSideEffects: false,
   },
-  external: [/node_modules/],
+  external: [/node_modules/, 'jsonwebtoken', 'jwks-rsa'],
   plugins: [
     typescript({
       tsconfig: 'tsconfig.build.json',
