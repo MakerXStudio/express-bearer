@@ -66,8 +66,6 @@ JWT handling `config`:
 
 To specify per-host config, provide a \*`BearerConfigCallback` in the form of `(host: string) => BearerConfig`.
 
-Note: the callback will only be called once per host (config is cached).
-
 ### Apps accepting bearer tokens from multiple issuers
 
 If your app needs to accept bearer tokens from multiple issuers (OIDC endpoints) **each with different JWKS URIs** on a single endpoint (not varied by host), `multiIssuerBearerTokenMiddleware` supports this with a different approach. It will:
