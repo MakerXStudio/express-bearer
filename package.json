@@ -1,6 +1,6 @@
 {
   "name": "@makerx/express-bearer",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": false,
   "description": "Bearer token validation middleware for Express.js",
   "author": "MakerX",
