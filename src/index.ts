@@ -91,19 +91,22 @@ function verifyToken(jwt: string, getKey: GetPublicKeyOrSecret, verifyOptions: V
   })
 }
 
-const jwksClientCache: Record<string, JwksClient> = {}
+const jwksCache = new Map<string, { jwksClient: JwksClient; getKey: GetPublicKeyOrSecret }>()
 
-function getOrCreateJwksClient(jwksUri: string): JwksClient {
-  if (!jwksClientCache[jwksUri]) {
-    jwksClientCache[jwksUri] = new JwksClient({ jwksUri })
+function getOrCreateJwksEntry(jwksUri: string): { jwksClient: JwksClient; getKey: GetPublicKeyOrSecret } {
+  let entry = jwksCache.get(jwksUri)
+  if (!entry) {
+    const jwksClient = new JwksClient({ jwksUri })
+    entry = { jwksClient, getKey: createGetKey(jwksClient) }
+    jwksCache.set(jwksUri, entry)
   }
-  return jwksClientCache[jwksUri]
+  return entry
 }
 
 export const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerConfigCallback): Promise<JwtPayload> => {
   const { jwksUri, verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation } = resolveConfig(config, host)
   validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
-  return verifyToken(jwt, createGetKey(getOrCreateJwksClient(jwksUri)), verifyOptions)
+  return verifyToken(jwt, getOrCreateJwksEntry(jwksUri).getKey, verifyOptions)
 }
 
 const defaultUnauthorizedResponse = (_req: Request, res: Response) => res.status(401).send('Unauthorized').end()
@@ -195,7 +198,7 @@ export const verifyMultiIssuer = (
   const verifyOptions = typeof options.verifyOptions === 'function' ? options.verifyOptions(host) : options.verifyOptions
   validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
 
-  return verifyToken(jwt, createGetKey(getOrCreateJwksClient(options.jwksUri)), verifyOptions)
+  return verifyToken(jwt, getOrCreateJwksEntry(options.jwksUri).getKey, verifyOptions)
 }
 
 export const multiIssuerBearerTokenMiddleware = ({
