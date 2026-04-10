@@ -91,21 +91,22 @@ function verifyToken(jwt: string, getKey: GetPublicKeyOrSecret, verifyOptions: V
   })
 }
 
-const cacheByHost: Record<string, { verifyOptions: VerifyOptions; jwksClient: JwksClient; getKey: GetPublicKeyOrSecret }> = {}
-export const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerConfigCallback): Promise<JwtPayload> => {
-  if (!cacheByHost[host]) {
-    const { jwksUri, verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation } = resolveConfig(config, host)
-    validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
+const jwksCache = new Map<string, { jwksClient: JwksClient; getKey: GetPublicKeyOrSecret }>()
 
+function getOrCreateJwksEntry(jwksUri: string): { jwksClient: JwksClient; getKey: GetPublicKeyOrSecret } {
+  let entry = jwksCache.get(jwksUri)
+  if (!entry) {
     const jwksClient = new JwksClient({ jwksUri })
-    cacheByHost[host] = {
-      jwksClient,
-      verifyOptions,
-      getKey: createGetKey(jwksClient),
-    }
+    entry = { jwksClient, getKey: createGetKey(jwksClient) }
+    jwksCache.set(jwksUri, entry)
   }
-  const { verifyOptions, getKey } = cacheByHost[host]
-  return verifyToken(jwt, getKey, verifyOptions)
+  return entry
+}
+
+export const verifyForHost = (host: string, jwt: string, config: BearerConfig | BearerConfigCallback): Promise<JwtPayload> => {
+  const { jwksUri, verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation } = resolveConfig(config, host)
+  validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
+  return verifyToken(jwt, getOrCreateJwksEntry(jwksUri).getKey, verifyOptions)
 }
 
 const defaultUnauthorizedResponse = (_req: Request, res: Response) => res.status(401).send('Unauthorized').end()
@@ -178,7 +179,6 @@ export interface MultiIssuerBearerAuthOptions {
   explicitNoAudienceValidation?: boolean
 }
 
-const multiIssuerJwksClientCache: Record<string, JwksClient> = {}
 export const verifyMultiIssuer = (
   host: string,
   jwt: string,
@@ -195,13 +195,10 @@ export const verifyMultiIssuer = (
   const options = issuerOptions[decoded.iss]
   if (!options) throw new Error(`Missing bearer token verify options for issuer: ${decoded.iss}`)
 
-  const { jwksUri } = options
-  if (!multiIssuerJwksClientCache[jwksUri]) multiIssuerJwksClientCache[jwksUri] = new JwksClient({ jwksUri })
-
   const verifyOptions = typeof options.verifyOptions === 'function' ? options.verifyOptions(host) : options.verifyOptions
   validateVerifyOptions(verifyOptions, explicitNoIssuerValidation, explicitNoAudienceValidation)
 
-  return verifyToken(jwt, createGetKey(multiIssuerJwksClientCache[jwksUri]), verifyOptions)
+  return verifyToken(jwt, getOrCreateJwksEntry(options.jwksUri).getKey, verifyOptions)
 }
 
 export const multiIssuerBearerTokenMiddleware = ({
