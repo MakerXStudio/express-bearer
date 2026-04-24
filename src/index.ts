@@ -1,7 +1,10 @@
 import type { Logger } from '@makerx/node-common'
 import type { Request, RequestHandler, Response } from 'express'
-import { decode, GetPublicKeyOrSecret, JwtPayload, verify, VerifyOptions } from 'jsonwebtoken'
+import type { GetPublicKeyOrSecret, JwtPayload, VerifyOptions } from 'jsonwebtoken'
+import jsonwebtoken from 'jsonwebtoken'
 import { JwksClient } from 'jwks-rsa'
+
+const { decode, verify } = jsonwebtoken
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
